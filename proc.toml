@@ -1,0 +1,22 @@
+[services.a]
+command = "for i in {0..10}; do echo a$i; sleep 1; done"
+
+# conditions of assuming the startup is done
+[services.a.health_checker]
+output_trigger = [
+    "2",
+    "5"
+]
+
+[services.b]
+command = "for i in {0..10}; do echo b$i; sleep 1; done"
+depends_on = ["a"]
+
+[services.b.health_checker]
+output_trigger = [
+    "4"
+]
+
+[services.c]
+command = "for i in {0..10}; do echo c$i; sleep 1; done"
+depends_on = ["b"]
