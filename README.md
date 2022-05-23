@@ -2,6 +2,8 @@
 
 Tool to execute commands in sequence. 
 
+## Install
+`cargo install --git https://github.com/rnitta/stepn`
 
 ## Practical Usage
 Assuming web development with Ruby on Rails and webpack(-dev-server).
