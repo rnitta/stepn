@@ -26,6 +26,16 @@ Irritating.
 Write proc.toml and execute `stepn`.
 
 
+## How it works
+1
+![1](./imgs/arc1.svg)
+
+2
+![2](./imgs/arc2.svg)
+
+3
+![3](./imgs/arc3.svg)
+
 ## proc.toml
 
 see `src/stepn_config.rs` for detail.
