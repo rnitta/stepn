@@ -11,7 +11,7 @@ use std::time::Duration;
 mod stepn_config;
 mod util;
 
-use crate::util::pad_with_trailing_space;
+use crate::util::{pad_with_trailing_space, MethodChain};
 use once_cell::sync::Lazy;
 use tokio::process::Command;
 use tokio_util::codec::{FramedRead, LinesCodec};
@@ -64,6 +64,15 @@ async fn main() -> Result<(), Error> {
                 .arg("-c")
                 .arg(&service.command)
                 .env("IS_STEPN", "true")
+                .then(Box::new(|c: &mut Command| {
+                    println!("calleeeeeee, {:?}", service.environments);
+                    let env = &service.environments;
+                    if let Some(env) = env {
+                        env.iter().fold(c, |acc, (k, v)| acc.env(k, v))
+                    } else {
+                        c
+                    }
+                }))
                 .stdout(Stdio::piped())
                 .stderr(Stdio::inherit())
                 .spawn()

@@ -74,6 +74,9 @@ output_trigger = [
 command = "bundle exec rails db:migrate && bundle exec rails s"
 # migration can be executed after postgresql is booted.
 depends_on = [ "middleware" ]
+[services.web.environments]
+PORT = "3000"
+BINDING = "0.0.0.0"
 
 [services.frontend]
 command = "yarn webpack-dev-server"

@@ -1,5 +1,8 @@
 [services.a]
-command = "for i in {0..10}; do echo a$i; sleep 1; done"
+command = "for i in {0..10}; do echo a$1; sleep 1; done"
+[services.a.environments]
+HOGE = "FUGA"
+FUGA = "HOGE"
 
 # conditions of assuming the startup is done
 [services.a.health_checker]

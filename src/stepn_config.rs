@@ -20,6 +20,7 @@ pub struct Service {
     pub command: String,
     pub depends_on: Option<Vec<String>>,
     pub health_checker: Option<HealthChecker>,
+    pub environments: Option<HashMap<String, String>>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
