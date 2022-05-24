@@ -65,7 +65,6 @@ async fn main() -> Result<(), Error> {
                 .arg(&service.command)
                 .env("IS_STEPN", "true")
                 .then(Box::new(|c: &mut Command| {
-                    println!("calleeeeeee, {:?}", service.environments);
                     let env = &service.environments;
                     if let Some(env) = env {
                         env.iter().fold(c, |acc, (k, v)| acc.env(k, v))
