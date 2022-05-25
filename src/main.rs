@@ -45,6 +45,11 @@ async fn main() -> Result<(), Error> {
                 })
             }
 
+            if let Some(delay_sec) = service.clone().delay_sec {
+                println!("{}: Delaying {} secs", name, delay_sec);
+                std::thread::sleep(Duration::from_secs(delay_sec))
+            }
+
             let mut dependents = if let Some(health_checker) = &service.health_checker {
                 if let Some(output_trigger) = &health_checker.output_trigger {
                     output_trigger

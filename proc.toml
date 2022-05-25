@@ -1,5 +1,5 @@
 [services.a]
-command = "for i in {0..10}; do echo a$1; sleep 1; done"
+command = "for i in {0..10}; do echo a$i; sleep 1; done"
 [services.a.environments]
 HOGE = "FUGA"
 FUGA = "HOGE"
@@ -14,6 +14,9 @@ output_trigger = [
 [services.b]
 command = "for i in {0..10}; do echo b$i; sleep 1; done"
 depends_on = ["a"]
+# wait 3sec after ready to boot
+delay_sec = 3
+
 
 [services.b.health_checker]
 output_trigger = [
