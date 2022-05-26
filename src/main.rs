@@ -28,12 +28,27 @@ async fn main() -> Result<(), Error> {
                 acc.insert(cur.to_string(), false);
                 acc
             });
+
+    let children: Arc<RwLock<Vec<i32>>> = Arc::new(RwLock::new(Vec::new()));
+    let ptr = Arc::clone(&children);
+    ctrlc::set_handler(move || {
+        println!("\nReceived Ctrl+C!");
+        for pid in ptr.write().unwrap().iter_mut() {
+            println!("killing!");
+            let pid = nix::unistd::Pid::from_raw(pid.clone());
+            nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGTERM).unwrap();
+        }
+        std::process::exit(1);
+    })
+    .expect("Error setting Ctrl-C handler");
+
     let healthcheck_map_ptr: Arc<RwLock<HashMap<String, bool>>> =
         Arc::new(RwLock::new(healthcheck_map));
 
     let futures = CONFIG.services.iter().map(|(name, service)| {
         let name = name.to_string();
         let healthcheck_map_ptr = Arc::clone(&healthcheck_map_ptr);
+        let children_ptr = Arc::clone(&children);
         let future = tokio::spawn(async move {
             if let Some(depends_on) = service.clone().depends_on {
                 depends_on.iter().for_each(|dep| 'wait: loop {
@@ -82,7 +97,12 @@ async fn main() -> Result<(), Error> {
                 .spawn()
                 .expect(&format!("failed to start command: {}", service.command));
 
-            let mut reader = FramedRead::new(child.stdout.take().unwrap(), LinesCodec::new());
+            let stdout = child.stdout.take().unwrap();
+            if let Some(pid) = child.id() {
+                children_ptr.write().unwrap().push(pid as i32);
+            }
+
+            let mut reader = FramedRead::new(stdout, LinesCodec::new());
             while let Some(Ok(line)) = reader.next().await {
                 println!(
                     "{}{} {}",

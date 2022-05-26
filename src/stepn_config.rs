@@ -21,7 +21,7 @@ pub struct Service {
     pub depends_on: Option<Vec<String>>,
     pub health_checker: Option<HealthChecker>,
     pub environments: Option<HashMap<String, String>>,
-    pub delay_sec: Option<u64>
+    pub delay_sec: Option<u64>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
