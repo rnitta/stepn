@@ -38,6 +38,30 @@ Write proc.toml and execute `stepn`.
 
 ## proc.toml
 
+### Config
+
+| name     | required | default | type                     | explain                      |
+| -------- | -------- | ------- | ------------------------ | ---------------------------- |
+| services | yes      | -       | HashMap<String, Service> | list of service and its name |
+
+### Service
+
+| name           | required | default | type                    | explain                                                                        | 
+| -------------- | -------- | ------- | ----------------------- | ------------------------------------------------------------------------------ | 
+| command        | yes      | None    | String                  | command run in the service                                                     | 
+| depends_on     | no       | None    | Vec<String>             | names of the other services waiting to be started when that service is started | 
+| health_checker | no       | None    | HealthChecker           | conditions for certifying that the service has booted                          | 
+| environments   | no       | None    | HashMap<String, String> | environment variables: <key, value>                                            | 
+| delay_sec      | no       | None    | u64                     | seconds to wait before starting that service                                   | 
+
+### HealthChecker
+
+| name           | required | default | type        | explain                                                                        | 
+| -------------- | -------- | ------- | ----------- | ------------------------------------------------------------------------------ | 
+| output_trigger | no       | None    | Vec<String> | string to mark the service as booted if it appears in the log output to stdout | 
+
+
+
 see `src/stepn_config.rs` for detail.
 
 example1:
