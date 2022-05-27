@@ -1,5 +1,6 @@
 use crate::stepn_config::{read_config, StepnConfig};
 use colored::Colorize;
+use futures::executor::block_on;
 use futures::future::join_all;
 use futures::StreamExt;
 use std::collections::HashMap;
@@ -13,6 +14,7 @@ mod util;
 
 use crate::util::{pad_with_trailing_space, MethodChain};
 use once_cell::sync::Lazy;
+use seahorse::Context;
 use tokio::process::Command;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
@@ -20,6 +22,81 @@ static CONFIG: Lazy<StepnConfig> = Lazy::new(|| read_config().unwrap());
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    let args: Vec<String> = std::env::args().collect();
+    let app = seahorse::App::new(env!("CARGO_PKG_NAME"))
+        .description(env!("CARGO_PKG_DESCRIPTION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .usage("cli [args]")
+        .action(|c| block_on(run(c)))
+        .command(
+            seahorse::Command::new("run")
+                .description("run command from proc.toml")
+                .alias("r")
+                .usage("stepn run(r)")
+                .action(|c| block_on(run(c))),
+        )
+        .command(
+            seahorse::Command::new("execute")
+                .description("execute oneshot command")
+                .alias("e")
+                .usage("stepn execute(e) <service> <command>")
+                .action(|c| block_on(execute(c))),
+        );
+
+    app.run(args);
+    Ok(())
+}
+
+async fn execute(con: &Context) {
+    let service_name = con.args.get(0).expect("args not sufficient").clone();
+    let service = CONFIG
+        .services
+        .get(&service_name)
+        .expect(&format!("service {} is not defined", service_name));
+    let oneshot_command = con
+        .args
+        .get(1..(con.args.len()))
+        .expect("command not passed")
+        .to_vec();
+    println!("{:?}", oneshot_command);
+    let future = tokio::spawn(async move {
+        let mut child = Command::new("sh")
+            .arg("-c")
+            .arg(&oneshot_command.join(" "))
+            .env("IS_STEPN", "true")
+            .then(Box::new(|c: &mut Command| {
+                let env = &service.environments;
+                if let Some(env) = env {
+                    env.iter().fold(c, |acc, (k, v)| acc.env(k, v))
+                } else {
+                    c
+                }
+            }))
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .expect(&format!(
+                "failed to start command: {}",
+                oneshot_command.join(" ")
+            ));
+
+        let stdout = child.stdout.take().unwrap();
+        let mut reader = FramedRead::new(stdout, LinesCodec::new());
+        while let Some(Ok(line)) = reader.next().await {
+            println!(
+                "{}{} {}",
+                pad_with_trailing_space(10, &service_name.to_string()).blue(),
+                ": ".green(),
+                line
+            );
+        }
+    });
+    future.await.unwrap();
+}
+
+async fn run(c: &Context) {
+    println!("{:?}", c.args);
     let healthcheck_map: HashMap<String, bool> =
         CONFIG
             .services
@@ -139,6 +216,4 @@ async fn main() -> Result<(), Error> {
     });
     join_all(futures).await;
     println!("stepn finished");
-
-    Ok(())
 }

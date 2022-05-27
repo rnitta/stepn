@@ -311,6 +311,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
+name = "seahorse"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3367111e93171f2f51f16fb46201bf6687f9da95eb1d409b6067cbc77af9c9c"
+
+[[package]]
 name = "serde"
 version = "1.0.137"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -373,13 +379,14 @@ dependencies = [
 
 [[package]]
 name = "stepn"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "colored",
  "ctrlc",
  "futures",
  "nix",
  "once_cell",
+ "seahorse",
  "serde",
  "signal-hook",
  "tokio",
