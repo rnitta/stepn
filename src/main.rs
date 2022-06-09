@@ -114,7 +114,7 @@ async fn run(c: &Context) {
             println!("killing!");
             let pid = nix::unistd::Pid::from_raw(pid.clone());
             nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGTERM)
-                .unwrap_or_else(println!(format!("kill signal failed as to pid: {}", pid)));
+                .unwrap_or_else(|_| println!("kill signal failed as to pid: {}", pid));
         }
         std::process::exit(1);
     })
