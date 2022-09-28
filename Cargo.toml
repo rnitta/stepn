@@ -20,4 +20,5 @@ tokio-util = { version = "0.7.2", features = ["codec"] }
 toml = "0.5"
 ctrlc = "3.2.2"
 nix = { version = "0.24.1", features = ["signal", "process", "aio"] }
+sysinfo = "0.26.4"
 seahorse = "2.1.0"

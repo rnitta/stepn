@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::fmt::Error;
 use std::process::Stdio;
 use std::sync::{Arc, RwLock};
+use std::thread;
 use std::time::Duration;
 
 mod stepn_config;
@@ -15,6 +16,7 @@ mod util;
 use crate::util::{pad_with_trailing_space, MethodChain};
 use once_cell::sync::Lazy;
 use seahorse::Context;
+use sysinfo::{Pid, ProcessExt, SystemExt};
 use tokio::process::Command;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
@@ -115,6 +117,14 @@ async fn run(c: &Context) {
             let pid = nix::unistd::Pid::from_raw(pid.clone());
             nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGTERM)
                 .unwrap_or_else(|_| println!("kill signal failed as to pid: {}", pid));
+        }
+        // wait until truly the process killed
+        let s = sysinfo::System::new_all();
+        for pid in ptr.write().unwrap().iter_mut() {
+            while let Some(process) = s.process(Pid::from(pid.clone())) {
+                thread::sleep(Duration::from_secs(2));
+                println!("Waiting {} process terminated. pid: {}.", process.name(), pid);
+            }
         }
         std::process::exit(1);
     })
