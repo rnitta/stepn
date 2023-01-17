@@ -199,9 +199,16 @@ async fn run(c: &Context) {
 
             let mut stdout_reader = FramedRead::new(stdout, LinesCodec::new());
             let mut stderr_reader = FramedRead::new(stderr, LinesCodec::new());
-            let mut merged_stream = stdout_reader
-                .into_stream()
-                .merge(stderr_reader.into_stream());
+            let mut merged_stream =
+                stdout_reader
+                    .into_stream()
+                    .merge(stderr_reader.into_stream().map(|r| {
+                        if let Ok(a) = r {
+                            Ok(format!("*stderr* {}".red(), a))
+                        } else {
+                            r
+                        }
+                    }));
             while let Some(Ok(line)) = merged_stream.next().await {
                 println!(
                     "{}{} {}",
