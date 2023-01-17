@@ -2,13 +2,14 @@ use crate::stepn_config::{read_config, StepnConfig};
 use colored::Colorize;
 use futures::executor::block_on;
 use futures::future::join_all;
-use futures::StreamExt;
+use futures::{FutureExt, TryFutureExt, TryStreamExt};
 use std::collections::HashMap;
 use std::fmt::Error;
 use std::process::Stdio;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
+use tokio_stream::StreamExt;
 
 mod stepn_config;
 mod util;
@@ -76,7 +77,7 @@ async fn execute(con: &Context) {
                 }
             }))
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            .stderr(Stdio::piped())
             .spawn()
             .expect(&format!(
                 "failed to start command: {}",
@@ -123,7 +124,11 @@ async fn run(c: &Context) {
         for pid in ptr.write().unwrap().iter_mut() {
             while let Some(process) = s.process(Pid::from(pid.clone())) {
                 thread::sleep(Duration::from_secs(2));
-                println!("Waiting {} process terminated. pid: {}.", process.name(), pid);
+                println!(
+                    "Waiting {} process terminated. pid: {}.",
+                    process.name(),
+                    pid
+                );
             }
         }
         std::process::exit(1);
@@ -169,6 +174,7 @@ async fn run(c: &Context) {
             };
 
             let mut child = Command::new("sh")
+                .kill_on_drop(true)
                 .arg("-c")
                 .arg(&service.command)
                 .env("IS_STEPN", "true")
@@ -181,7 +187,7 @@ async fn run(c: &Context) {
                     }
                 }))
                 .stdout(Stdio::piped())
-                .stderr(Stdio::inherit())
+                .stderr(Stdio::piped())
                 .spawn()
                 .expect(&format!("failed to start command: {}", service.command));
 
@@ -189,37 +195,44 @@ async fn run(c: &Context) {
             if let Some(pid) = child.id() {
                 children_ptr.write().unwrap().push(pid as i32);
             }
+            let stderr = child.stderr.take().unwrap();
 
-            let mut reader = FramedRead::new(stdout, LinesCodec::new());
-            while let Some(Ok(line)) = reader.next().await {
-                println!(
-                    "{}{} {}",
-                    pad_with_trailing_space(10, &name.to_string()).red(),
-                    ": ".green(),
-                    line
-                );
+            let mut stdout_reader = FramedRead::new(stdout, LinesCodec::new());
+            let mut stderr_reader = FramedRead::new(stderr, LinesCodec::new());
+            let mut merged_stream = stdout_reader
+                .into_stream()
+                .merge(stderr_reader.into_stream());
+            loop {
+                if let Some(Ok(line)) = merged_stream.next().await {
+                    println!(
+                        "{}{} {}",
+                        pad_with_trailing_space(10, &name.to_string()).green(),
+                        ": ".green(),
+                        line
+                    );
 
-                if dependents.iter().any(|(_, flag)| !*flag) {
-                    let yet_activated_dependents: Vec<String> = dependents
-                        .iter()
-                        .filter(|(_, flag)| !**flag)
-                        .map(|(k, _)| k.to_string())
-                        .collect();
-                    yet_activated_dependents.iter().for_each(|keyword| {
-                        if line.contains(keyword) {
-                            dependents.insert(keyword.to_string(), true);
-                        }
-                    })
-                } else if !*healthcheck_map_ptr
-                    .read()
-                    .unwrap()
-                    .get(&name.to_string())
-                    .unwrap()
-                {
-                    healthcheck_map_ptr
-                        .write()
+                    if dependents.iter().any(|(_, flag)| !*flag) {
+                        let yet_activated_dependents: Vec<String> = dependents
+                            .iter()
+                            .filter(|(_, flag)| !**flag)
+                            .map(|(k, _)| k.to_string())
+                            .collect();
+                        yet_activated_dependents.iter().for_each(|keyword| {
+                            if line.contains(keyword) {
+                                dependents.insert(keyword.to_string(), true);
+                            }
+                        })
+                    } else if !*healthcheck_map_ptr
+                        .read()
                         .unwrap()
-                        .insert(name.to_string(), true);
+                        .get(&name.to_string())
+                        .unwrap()
+                    {
+                        healthcheck_map_ptr
+                            .write()
+                            .unwrap()
+                            .insert(name.to_string(), true);
+                    }
                 }
             }
         });
