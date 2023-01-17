@@ -202,37 +202,35 @@ async fn run(c: &Context) {
             let mut merged_stream = stdout_reader
                 .into_stream()
                 .merge(stderr_reader.into_stream());
-            loop {
-                if let Some(Ok(line)) = merged_stream.next().await {
-                    println!(
-                        "{}{} {}",
-                        pad_with_trailing_space(10, &name.to_string()).green(),
-                        ": ".green(),
-                        line
-                    );
+            while let Some(Ok(line)) = merged_stream.next().await {
+                println!(
+                    "{}{} {}",
+                    pad_with_trailing_space(10, &name.to_string()).green(),
+                    ": ".green(),
+                    line
+                );
 
-                    if dependents.iter().any(|(_, flag)| !*flag) {
-                        let yet_activated_dependents: Vec<String> = dependents
-                            .iter()
-                            .filter(|(_, flag)| !**flag)
-                            .map(|(k, _)| k.to_string())
-                            .collect();
-                        yet_activated_dependents.iter().for_each(|keyword| {
-                            if line.contains(keyword) {
-                                dependents.insert(keyword.to_string(), true);
-                            }
-                        })
-                    } else if !*healthcheck_map_ptr
-                        .read()
+                if dependents.iter().any(|(_, flag)| !*flag) {
+                    let yet_activated_dependents: Vec<String> = dependents
+                        .iter()
+                        .filter(|(_, flag)| !**flag)
+                        .map(|(k, _)| k.to_string())
+                        .collect();
+                    yet_activated_dependents.iter().for_each(|keyword| {
+                        if line.contains(keyword) {
+                            dependents.insert(keyword.to_string(), true);
+                        }
+                    })
+                } else if !*healthcheck_map_ptr
+                    .read()
+                    .unwrap()
+                    .get(&name.to_string())
+                    .unwrap()
+                {
+                    healthcheck_map_ptr
+                        .write()
                         .unwrap()
-                        .get(&name.to_string())
-                        .unwrap()
-                    {
-                        healthcheck_map_ptr
-                            .write()
-                            .unwrap()
-                            .insert(name.to_string(), true);
-                    }
+                        .insert(name.to_string(), true);
                 }
             }
         });
