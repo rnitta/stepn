@@ -2,7 +2,7 @@ use crate::stepn_config::{read_config, StepnConfig};
 use colored::Colorize;
 use futures::executor::block_on;
 use futures::future::join_all;
-use futures::{FutureExt, TryFutureExt, TryStreamExt};
+use futures::{TryStreamExt};
 use std::collections::HashMap;
 use std::fmt::Error;
 use std::process::Stdio;
@@ -197,14 +197,14 @@ async fn run(c: &Context) {
             }
             let stderr = child.stderr.take().unwrap();
 
-            let mut stdout_reader = FramedRead::new(stdout, LinesCodec::new());
-            let mut stderr_reader = FramedRead::new(stderr, LinesCodec::new());
+            let stdout_reader = FramedRead::new(stdout, LinesCodec::new());
+            let stderr_reader = FramedRead::new(stderr, LinesCodec::new());
             let mut merged_stream =
                 stdout_reader
                     .into_stream()
                     .merge(stderr_reader.into_stream().map(|r| {
                         if let Ok(a) = r {
-                            Ok(format!("*stderr* {}".red(), a))
+                            Ok(format!("*stderr* {}", a).red().to_string())
                         } else {
                             r
                         }
