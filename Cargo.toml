@@ -4,7 +4,7 @@ authors = [
     "rnitta<attinyes@gmail.com>"
 ]
 description = "step-by-step command runner"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 rust-version = "1.80"
 license = "MIT"

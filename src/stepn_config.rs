@@ -1,12 +1,10 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
-pub fn read_config() -> Result<StepnConfig> {
-    let current_path = std::env::current_dir()?;
-    let filepath = format!("{}/proc.toml", current_path.display());
+pub fn read_config(filepath: &str) -> Result<StepnConfig> {
     let content =
-        std::fs::read_to_string(&filepath).with_context(|| format!("{} not found", filepath))?;
+        std::fs::read_to_string(filepath).with_context(|| format!("{} not found", filepath))?;
     let config: StepnConfig =
         toml::from_str(&content).with_context(|| format!("failed to parse {}", filepath))?;
     config.validate()?;
@@ -25,6 +23,9 @@ pub struct Service {
     pub health_checker: Option<HealthChecker>,
     pub environments: Option<HashMap<String, String>>,
     pub delay_sec: Option<u64>,
+    #[serde(default)]
+    pub restart: bool,
+    pub max_restarts: Option<u32>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -32,12 +33,23 @@ pub struct HealthChecker {
     pub output_trigger: Option<Vec<String>>,
 }
 
+impl Service {
+    pub fn effective_max_restarts(&self) -> u32 {
+        if !self.restart {
+            return 0;
+        }
+        match self.max_restarts {
+            None => 3,
+            Some(0) => u32::MAX,
+            Some(n) => n,
+        }
+    }
+}
+
 impl StepnConfig {
-    /// Validate that all depends_on references exist and there are no circular dependencies.
     fn validate(&self) -> Result<()> {
         let service_names: HashSet<&str> = self.services.keys().map(|s| s.as_str()).collect();
 
-        // Check all depends_on references exist
         for (name, service) in &self.services {
             if let Some(deps) = &service.depends_on {
                 for dep in deps {
@@ -87,5 +99,39 @@ impl StepnConfig {
 
         in_stack.remove(node);
         Ok(())
+    }
+
+    pub fn resolve_transitive_deps(&self, names: &[String]) -> HashSet<String> {
+        let mut result = HashSet::new();
+        let mut queue: VecDeque<String> = names.iter().cloned().collect();
+        while let Some(name) = queue.pop_front() {
+            if result.insert(name.clone()) {
+                if let Some(service) = self.services.get(&name) {
+                    if let Some(deps) = &service.depends_on {
+                        for dep in deps {
+                            if !result.contains(dep) {
+                                queue.push_back(dep.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result
+    }
+
+    pub fn dependents_of(&self, name: &str) -> Vec<String> {
+        let mut result: Vec<String> = self
+            .services
+            .iter()
+            .filter(|(_, svc)| {
+                svc.depends_on
+                    .as_ref()
+                    .is_some_and(|deps| deps.iter().any(|d| d == name))
+            })
+            .map(|(n, _)| n.clone())
+            .collect();
+        result.sort();
+        result
     }
 }
